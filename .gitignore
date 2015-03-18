@@ -11,3 +11,5 @@
 *.mex*
 # Simulink Code Generation
 slprj/
+# own added
+*~
