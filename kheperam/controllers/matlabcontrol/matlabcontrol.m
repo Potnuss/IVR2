@@ -28,6 +28,6 @@ desktop;
 % perform simulation steps of TIME_STEP milliseconds
 % and leave the controll to the keyboard
 while wb_robot_step(TIME_STEP) ~= -1
-%keyboard;
- test;
+keyboard;
+% test;
   end

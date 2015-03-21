@@ -13,6 +13,8 @@ elseif strcmp(string,'3right')
     value = sensor_values(4)+sensor_values(5)+sensor_values(6);
 elseif strcmp(string,'frontleft')
     value = sensor_values(3);
+elseif strcmp(string,'23')
+    value = sensor_values(2) + sensor_values(3);
 else
     value = 0;
 end
