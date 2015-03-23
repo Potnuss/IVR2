@@ -1,9 +1,10 @@
 
 %% Init
-general_speed = 8; %rad/s
+general_speed = 5; %rad/s
+general_fast_speed = 5; %rad/s
 output_left_speed=1;
 output_right_speed=1;
-Kp = 0.01*general_speed;
+Kp = 0.01*general_fast_speed;
 Ki = 0;
 Kd = 0;
 wb_wheel_base = 0.053;
@@ -42,21 +43,26 @@ turned_angle2 = 0;
 timer1 = 0;
 edge_detected = 0;
 diff_sensor_values1 = 0;
+stored_sensor_values1 = 0;
 
-state_obstacle_in_front = 0;
-state_obstacle_check_intruder = 0;
-state_obstacle_turn_on_spot = 0;
-state_lost_wall = 0;
-state_follows_wall = 1;
-state_finish = 0;
-state_movement_detected = 0;
+state_finish = 1;
+state_obstacle_in_front = 2;
+state_obstacle_check_intruder = 3;
+state_obstacle_turn_on_spot = 4;
+state_lost_wall = 5;
+state_follows_wall = 6;
+state_movement_detected = 7;
+state_default = 8;
+state_look_for_wall = 9;
+state = 8;
+state_initialized = 0;
 %% Main loop
 while wb_robot_step(TIME_STEP) ~= -1
 %% Update sensors
 % Read all distance sensors
-       for i=1:N
-           sensor_values(i) = wb_distance_sensor_get_value(ps(i));
-       end
+  for i=1:N
+    sensor_values(i) = wb_distance_sensor_get_value(ps(i));
+  end
        
 % display all distance sensors values
   sensor_values
@@ -96,131 +102,194 @@ while wb_robot_step(TIME_STEP) ~= -1
       odo_is_home = 0;
   end
 %% Controlling
+%% State Machine
+while(true)
+    error_left = get_sensor_value('left',sensor_values) - 600;
+    %error_2left = get_sensor_value('2left',sensor_values) - 850;
+%% Init States
+    if(state_initialized == 0)
+    %Init states
+        %if ( (state_obstacle_in_front == 0) && (sensor_values(3)  > 570))
+        if (state == state_obstacle_in_front)
 
-error_left = get_sensor_value('left',sensor_values) - 600;
-%error_2left = get_sensor_value('2left',sensor_values) - 850;
 
-%sTrigger/init states
-if ( (state_obstacle_in_front == 0) && (sensor_values(3)  > 570))
-        state_obstacle_in_front = 1;
-end
+        %if (state_obstacle_check_intruder == 0 && state_obstacle_in_front == 1 && state_obstacle_turn_on_spot ~= 1 ) 
+        elseif (state == state_obstacle_check_intruder) 
+                timer1_start_value = wb_robot_get_time();
+                start_listen_for_intruder = 0;
 
-if (state_obstacle_check_intruder == 0 && state_obstacle_in_front == 1 && state_obstacle_turn_on_spot ~= 1 ) 
-       % state_obstacle_check_intruder = 1;
-        timer1_start_value = wb_robot_get_time();
-        stored_sensor_values1 = sensor_values;
-end
+        %if ( (state_obstacle_turn_on_spot == 0) && (sensor_values(3)  > 570))
+        elseif (state == state_obstacle_turn_on_spot)
+                %state_obstacle_turn_on_spot = 1;
+                stored_odo_phi = odo_phi;
+                stored_front_sensor_value = sensor_values(3); 
+                edge_detected = 0;
 
-if ( (state_obstacle_turn_on_spot == 0) && (sensor_values(3)  > 570))
-        state_obstacle_turn_on_spot = 1;
-        stored_odo_phi = odo_phi;
-        stored_front_sensor_value = sensor_values(3); 
-        edge_detected = 0;
-end
-
-if ((state_lost_wall == 0) && ...
-    (state_follows_wall == 1) && ...
-        (state_obstacle_turn_on_spot == 0) && ...
-        (sensor_values(2) == 0) && (sensor_values(1) == 0))
-    
-    state_lost_wall = 1;
-    %state_follows_wall = 0 %should be here later maybe, TODO?
-    stored_odo_phi2 = odo_phi;
-end
-if (odo_been_away_from_home && odo_is_home)
-    state_finish = 1;
-end
-
-%Calculate values for active states
-if(state_obstacle_check_intruder)
-    timer1 =  wb_robot_get_time() - timer1_start_value;
-    diff_sensor_values1 = abs(stored_sensor_values1 - sensor_values);
-    if(timer1 < 0.1)
-        stored_sensor_values1 = sensor_values;
-    elseif(max(diff_sensor_values1) > 20)
-        state_movement_detected = 1;
+        %if ((state_lost_wall == 0) && ...
+            %(state_follows_wall == 1) && ...
+                %(state_obstacle_turn_on_spot == 0) && ...
+                %(sensor_values(2) == 0) && (sensor_values(1) == 0))
+        elseif (state == state_lost_wall)
+            stored_odo_phi2 = odo_phi;
+        elseif (state == state_default)
+            stored_odo_phi3 = odo_phi;
+        end
+        state_initialized = 1;
     end
-end
-if (state_obstacle_turn_on_spot)
-    turned_angle = abs(stored_odo_phi - odo_phi);
-end
 
-if(state_lost_wall)
-    turned_angle2 = abs(stored_odo_phi2 - odo_phi);
-end
-
-if (state_obstacle_turn_on_spot)
-    dval = abs(stored_front_sensor_value - sensor_values(3))
-    if (abs(stored_front_sensor_value - sensor_values(3) > 400))
-        edge_detected = 1;
+    %% Make transition from state or stay in state x
+    if (state == state_follows_wall)
+        if (odo_been_away_from_home && odo_is_home)
+            state = state_finish;
+            state_initialized = 0;
+        elseif (sensor_values(3)  > 570)
+            state = state_obstacle_in_front;
+            state_initialized = 0;
+        elseif (sensor_values(2) == 0) && (sensor_values(1) == 0)
+            state = state_lost_wall;
+            state_initialized = 0; 
+        else
+        end
         
-    end
-    stored_front_sensor_value = sensor_values(3); %maybe move this?
-end
-
-%Cancel states
-if(state_obstacle_check_intruder)
-    if(timer1 > 0.5)
-        state_obstacle_check_intruder = 0;
-    end
-end
-
-if (state_obstacle_turn_on_spot)
-    if ((edge_detected == 0) && ...
+    elseif (state == state_obstacle_check_intruder)
+        
+        timer1 =  wb_robot_get_time() - timer1_start_value
+        
+        stored_sensor_values1 %only for show in console
+        odo_speed_right_rads %only for show in console
+        odo_speed_left_rads %only for show in console
+        
+        if (((odo_speed_left_rads + odo_speed_right_rads) == 0) ...
+                && (start_listen_for_intruder == 0))
+                
+            start_listen_for_intruder = 1;
+            stored_sensor_values1 = sensor_values;
+        end
+        if(start_listen_for_intruder)
+            diff_sensor_values1 = abs(stored_sensor_values1 - sensor_values)
+        end
+        
+        if (odo_been_away_from_home && odo_is_home)
+            state = state_finish;
+            state_initialized = 0;
+        elseif (timer1 > 0.5) && (sensor_values(3)  > 570)
+            % could go back to state_obstacle_in_front with information about a
+            % clear position, later on
+            state = state_obstacle_turn_on_spot;
+            state_initialized = 0;
+        elseif(start_listen_for_intruder && (max(diff_sensor_values1) > 10))
+            state = state_movement_detected;
+            state_initialized = 0;
+        end
+    elseif (state == state_obstacle_turn_on_spot)
+        turned_angle = abs(stored_odo_phi - odo_phi);
+        dval = abs(stored_front_sensor_value - sensor_values(3));
+        if (abs(stored_front_sensor_value - sensor_values(3) > 400))
+            edge_detected = 1;
+        end
+        stored_front_sensor_value = sensor_values(3);
+        
+        if (odo_been_away_from_home && odo_is_home)
+            state = state_finish;
+            state_initialized = 0;
+        elseif ((edge_detected == 0) && ...
             ((turned_angle > (pi/2)) ||...
             (get_sensor_value('23',sensor_values) < 280)))
-        disp('Cancell1 state_obstacle_turn_on_spot')
-        state_obstacle_turn_on_spot = 0;
-        state_obstacle_in_front = 0;
+            state = state_follows_wall;
+            state_initialized = 0;
+            
+        elseif (edge_detected == 1) && (turned_angle > (pi/2)) && (sensor_values(1) > 500)
+            state = state_lost_wall;
+            state_initialized = 0;
+        elseif (edge_detected == 1) && (turned_angle > (pi/2)*0.9)
+            state = state_follows_wall;
+            state_initialized = 0;
+        end
+        
+    elseif (state == state_lost_wall)
+        turned_angle2 = abs(stored_odo_phi2 - odo_phi);
+        
+        if (odo_been_away_from_home && odo_is_home)
+            state = state_finish;
+            state_initialized = 0;
+        elseif (turned_angle2 > (pi/2)) || (get_sensor_value('left',sensor_values) > 600)
+            state = state_follows_wall;
+            state_initialized = 0;
+        % elseif add one here? what if we dont find a wall to follow?
+        end
+    elseif (state == state_obstacle_in_front)
+        state = state_obstacle_check_intruder;
+        state_initialized = 0;
+        
+    elseif (state == state_default)
+        turned_angle3 = abs(stored_odo_phi3 - odo_phi);
+        
+        if (odo_been_away_from_home && odo_is_home)
+            state = state_finish;
+            state_initialized = 0;
+        elseif ((sensor_values(1) < 800)...
+                && (sensor_values(1) > 400)...
+                && (get_sensor_value('2front',sensor_values) == 0)...
+                && (sensor_values(2) < 280))
+            state = state_follows_wall;
+            state_initialized = 0;
+        elseif ((turned_angle3 > 2*pi) && (get_sensor_value('2front',sensor_values) == 0))
+            state = state_look_for_wall;
+            state_initialized = 0;
+            
+        % elseif add one here? what if we dont find a wall to follow?
+        end
+    elseif (state == state_look_for_wall)
+        max(sensor_values) %just for debug
+        state
+        state_initialized
+        if (max(sensor_values) > 570)
+            state = state_default;
+            state_initialized = 0;
+        end
     end
-    if (edge_detected == 1) && (turned_angle > (pi/2))
-        disp('Cancell2 state_obstacle_turn_on_spot')
-        state_obstacle_turn_on_spot = 0;
-        state_obstacle_in_front = 0;
-    end
+   %hej = 1
+if (state_initialized == 1); break; end
 end
-
-if (state_lost_wall)
-    if (turned_angle2 > (pi/2)) || (get_sensor_value('left',sensor_values) > 600)
-        state_lost_wall = 0;
-    end
-end
-
-%main contol output
-if (state_finish)
+%% main contol output
+if (state == state_finish)
       output_left_speed = 0;
       output_right_speed = 0;
-elseif (state_obstacle_check_intruder)
+elseif (state == state_obstacle_check_intruder)
     output_left_speed=0;
     output_right_speed=0;
-elseif (state_obstacle_turn_on_spot)
+elseif (state == state_obstacle_turn_on_spot)
     output_left_speed=general_speed;
     output_right_speed=-general_speed;
-elseif (state_lost_wall)
+elseif (state == state_lost_wall)
     output_right_speed=turn_outer_speed;
     output_left_speed=turn_inner_speed;
-elseif (state_follows_wall)
-    output_left_speed=general_speed + Kp * error_left;
+elseif (state == state_follows_wall)
+    output_left_speed=general_fast_speed ;
+    output_right_speed=general_fast_speed - Kp * error_left;
+elseif(state == state_movement_detected)
+    output_left_speed=50;
+    output_right_speed=-50;
+elseif(state == state_default)
+    output_left_speed=general_speed;
+    output_right_speed=-general_speed;
+elseif(state == state_look_for_wall)
+    output_left_speed=general_speed;
     output_right_speed=general_speed;
 else
-    
+
 end
 
 
 
 wb_differential_wheels_set_speed(output_left_speed, output_right_speed);
-turned_angle
-edge_detected
-timer1
-diff_sensor_values1
+% turned_angle
+% edge_detected
+% timer1
+% diff_sensor_values1
 
-state_finish
-state_obstacle_in_front
-state_obstacle_check_intruder
-state_obstacle_turn_on_spot
-state_lost_wall
-state_follows_wall
-state_movement_detected
+state
+state_initialized
 
 
 end
