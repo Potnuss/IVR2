@@ -4,7 +4,8 @@ general_speed = 5; %rad/s
 general_fast_speed = 10; %rad/s
 output_left_speed=1;
 output_right_speed=1;
-Kp = 0.01*general_fast_speed;
+%Kp = 0.01*general_fast_speed;
+Kp = 0.05;
 Ki = 0;
 Kd = 0;
 wb_wheel_base = 0.053;
@@ -57,6 +58,8 @@ state_default = 8;
 state_look_for_wall = 9;
 state = 8;
 state_initialized = 0;
+
+stored_all_sensor_values = [0,0,0,0,0,0,0,0,last_time]
 %% Main loop
 while wb_robot_step(TIME_STEP) ~= -1
 %% Update sensors
@@ -67,6 +70,7 @@ while wb_robot_step(TIME_STEP) ~= -1
        
 % display all distance sensors values
   sensor_values
+  stored_all_sensor_values = [stored_all_sensor_values;sensor_values,last_time]
   
 %% Odometry
   odo_dt = wb_robot_get_time() - last_time;
