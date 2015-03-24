@@ -17,6 +17,11 @@ elseif strcmp(string,'23')
     value = sensor_values(2) + sensor_values(3);
 elseif strcmp(string,'2front')
     value = sensor_values(3) + sensor_values(4);
+elseif strcmp(string,'4front')
+    value = sensor_values(2) + sensor_values(3) + sensor_values(4) + sensor_values(5);
+elseif strcmp(string,'max4front')
+    temp = [sensor_values(2),sensor_values(3),sensor_values(4),sensor_values(5)]
+    value = max(temp);
 else
     value = 0;
 end

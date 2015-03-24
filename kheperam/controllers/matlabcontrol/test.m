@@ -1,7 +1,7 @@
 
 %% Init
 general_speed = 5; %rad/s
-general_fast_speed = 5; %rad/s
+general_fast_speed = 10; %rad/s
 output_left_speed=1;
 output_right_speed=1;
 Kp = 0.01*general_fast_speed;
@@ -44,7 +44,8 @@ timer1 = 0;
 edge_detected = 0;
 diff_sensor_values1 = 0;
 stored_sensor_values1 = 0;
-
+stuck_timer_enabled = 0;
+timer2 = 0;
 state_finish = 1;
 state_obstacle_in_front = 2;
 state_obstacle_check_intruder = 3;
@@ -135,6 +136,7 @@ while(true)
             stored_odo_phi3 = odo_phi;
         end
         state_initialized = 1;
+        stuck_timer_enabled = 0; %good position?
     end
 
     %% Make transition from state or stay in state x
@@ -159,7 +161,7 @@ while(true)
         odo_speed_right_rads %only for show in console
         odo_speed_left_rads %only for show in console
         
-        if (((odo_speed_left_rads + odo_speed_right_rads) == 0) ...
+        if (((abs(odo_speed_left_rads) + abs(odo_speed_right_rads)) == 0) ...
                 && (start_listen_for_intruder == 0))
                 
             start_listen_for_intruder = 1;
@@ -222,7 +224,7 @@ while(true)
         state_initialized = 0;
         
     elseif (state == state_default)
-        turned_angle3 = abs(stored_odo_phi3 - odo_phi);
+        turned_angle3 = abs(stored_odo_phi3 - odo_phi)
         
         if (odo_been_away_from_home && odo_is_home)
             state = state_finish;
@@ -233,22 +235,41 @@ while(true)
                 && (sensor_values(2) < 280))
             state = state_follows_wall;
             state_initialized = 0;
-        elseif ((turned_angle3 > 2*pi) && (get_sensor_value('2front',sensor_values) == 0))
+        elseif ((turned_angle3 > 2*pi) && (get_sensor_value('4front',sensor_values) == 0))
             state = state_look_for_wall;
             state_initialized = 0;
-            
-        % elseif add one here? what if we dont find a wall to follow?
+        elseif ((turned_angle3 > 4*pi) && (get_sensor_value('2front',sensor_values) == 0))
+            state = state_look_for_wall;
+            state_initialized = 0;
         end
     elseif (state == state_look_for_wall)
-        max(sensor_values) %just for debug
-        state
-        state_initialized
-        if (max(sensor_values) > 570)
+        if ((get_sensor_value('max4front',sensor_values) > 570))
             state = state_default;
             state_initialized = 0;
         end
     end
-   %hej = 1
+%% Home and stuck timer (overrides all states)
+    if ((odo_speed_right_rads == 0) && (odo_speed_right_rads == 0) )
+        if ((output_left_speed ~= 0)  && (output_right_speed ~= 0) && (stuck_timer_enabled == 0))
+            stuck_timer_enabled = 1;
+            timer2_start_value = wb_robot_get_time();
+        elseif(stuck_timer_enabled)
+            timer2 = wb_robot_get_time() - timer2_start_value;
+            if (timer2 > 1)
+                state = state_default;
+                state_initialized = 0;
+            end
+        end
+    elseif(stuck_timer_enabled)
+        stuck_timer_enabled = 0;
+    end
+    
+    if (odo_been_away_from_home && odo_is_home)
+            state = state_finish;
+            state_initialized = 0;
+    end      
+    hej = 1
+%%  End of State Machine
 if (state_initialized == 1); break; end
 end
 %% main contol output
