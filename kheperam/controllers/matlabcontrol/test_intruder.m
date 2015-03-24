@@ -1,7 +1,7 @@
 
 %% Init
-general_speed = 5; %rad/s
-general_fast_speed = 10; %rad/s
+general_speed = 2; %rad/s
+general_fast_speed = 2; %rad/s
 output_left_speed=1;
 output_right_speed=1;
 Kp = 0.01*general_fast_speed;
@@ -25,7 +25,7 @@ wb_differential_wheels_set_encoders(odo_encoder_value_left,odo_encoder_value_rig
 
 odo_z_home = odo_z;
 odo_x_home = odo_x;
-odo_minimum_radius = 0.1;
+odo_minimum_radius = 0.5;%0.1
 odo_home_radius = 0.0015;
 odo_been_away_from_home = 0;
 
@@ -105,6 +105,8 @@ while wb_robot_step(TIME_STEP) ~= -1
 %% Controlling
 %% State Machine
 while(true)
+    error_left = get_sensor_value('left',sensor_values) - 600;
+    %error_2left = get_sensor_value('2left',sensor_values) - 850;
 %% Init States
     if(state_initialized == 0)
     %Init states
@@ -134,13 +136,11 @@ while(true)
             stored_odo_phi3 = odo_phi;
         end
         state_initialized = 1;
-        stuck_timer_enabled = 0; %Always reset the stuck timer when enter a new state
+        stuck_timer_enabled = 0; %good position?
     end
 
     %% Make transition from state or stay in state x
     if (state == state_follows_wall)
-        error_left = get_sensor_value('left',sensor_values) - 600;
-        
         if (odo_been_away_from_home && odo_is_home)
             state = state_finish;
             state_initialized = 0;
@@ -238,9 +238,7 @@ while(true)
                 && (sensor_values(2) < 280))
             state = state_follows_wall;
             state_initialized = 0;
-        elseif ((turned_angle3 > 2*pi)...
-                && (get_sensor_value('4front',sensor_values) == 0)...
-                &&  (sensor_values(1) < 950))
+        elseif ((turned_angle3 > 2*pi) && (get_sensor_value('4front',sensor_values) == 0))
             state = state_look_for_wall;
             state_initialized = 0;
         elseif ((turned_angle3 > 4*pi) && (get_sensor_value('2front',sensor_values) == 0))
@@ -252,12 +250,8 @@ while(true)
             state = state_default;
             state_initialized = 0;
         end
-    elseif (state == state_movement_detected)
-        disp('ALARM: INTRUDER!')
-    elseif (state == state_finish)
-        disp('state_finish')
     end
-%% Stuck timer (overrides all states)
+%% Home and stuck timer (overrides all states)
     if ((odo_speed_right_rads == 0) && (odo_speed_right_rads == 0) )
         if ((output_left_speed ~= 0)  && (output_right_speed ~= 0) && (stuck_timer_enabled == 0))
             stuck_timer_enabled = 1;
@@ -271,7 +265,12 @@ while(true)
         end
     elseif(stuck_timer_enabled)
         stuck_timer_enabled = 0;
-    end   
+    end
+    
+    if (odo_been_away_from_home && odo_is_home)
+            state = state_finish;
+            state_initialized = 0;
+    end      
 %%  End of State Machine
 if (state_initialized == 1); break; end
 end
@@ -301,7 +300,7 @@ elseif(state == state_look_for_wall)
     output_left_speed=general_speed;
     output_right_speed=general_speed;
 else
-    %keep the old values
+
 end
 
 
