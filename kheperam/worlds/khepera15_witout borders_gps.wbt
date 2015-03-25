@@ -10,7 +10,7 @@ WorldInfo {
 }
 Viewpoint {
   orientation -0.621786 -0.571258 -0.535767 2.13748
-  position -0.00957489 1.15153 -0.166093
+  position 0.0154141 0.534814 -0.300452
 }
 PointLight {
   ambientIntensity 0.5
@@ -122,6 +122,7 @@ Solid {
   boundingObject USE WALL_SHAPE_L
 }
 DEF KHEPERA DifferentialWheels {
+  translation 0 0 -0.225
   children [
     GPS {
     }
